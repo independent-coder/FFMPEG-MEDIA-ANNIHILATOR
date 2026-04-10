@@ -1,0 +1,6 @@
+tests/
+*.exe
+*.dll
+*.pyc
+__pycache__/
+*.spec
