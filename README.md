@@ -8,24 +8,24 @@ Side-by-side comparison of original vs processed (ANNIHILATED) videos:
 
 ### Demo Videos
 
-Side-by-side comparisons of original vs annihilated videos (animated GIFs play automatically, click for full video):
+Side-by-side comparisons of original vs annihilated videos (click thumbnails to download):
 
 #### Bruno Mars - 24k Magic
-[![24k Magic Demo](demos/24k.gif)](demos/24k.mp4)
+[![24k Magic Demo](demos/24k_thumb.jpg)](https://files.catbox.moe/hntxfh.mp4)
 
 #### Bruno Mars - Treasure  
-[![Treasure Demo](demos/bruno.gif)](demos/bruno.mp4)
+[![Treasure Demo](demos/bruno_thumb.jpg)](https://files.catbox.moe/t7f0ry.mp4)
 
 #### Daft Punk - Get Lucky
-[![Get Lucky Demo](demos/getlucky.gif)](demos/getlucky.mp4)
+[![Get Lucky Demo](demos/getlucky_thumb.jpg)](https://files.catbox.moe/kn8c1o.mp4)
 
 #### Breakbot - Baby I'm Yours
-[![Baby I'm Yours Demo](demos/babyimyours.gif)](demos/babyimyours.mp4)
+[![Baby I'm Yours Demo](demos/babyimyours_thumb.jpg)](https://files.catbox.moe/upa53y.mp4)
 
 #### The Weeknd - I Feel It Coming
-[![I Feel It Coming Demo](demos/ifeelitcoming.gif)](demos/ifeelitcoming.mp4)
+[![I Feel It Coming Demo](demos/ifeelitcoming_thumb.jpg)](https://files.catbox.moe/d9y3eo.mp4)
 
-**Note**: Animated GIFs play automatically in GitHub. Click any GIF to download the full HD video file.
+**Note**: Click on any thumbnail to download the full demo video. GitHub doesn't embed video players in README files, so these thumbnails link to the actual video files.
 
 ### Notes
 - The music video of the respective songs are used for the demos. I do not own the rights to these videos and they are used for demonstration purposes only. I made sure that the demos are not too long and won't upset anyone.
