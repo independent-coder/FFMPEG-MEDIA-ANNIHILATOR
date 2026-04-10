@@ -6,30 +6,26 @@ A powerful GUI application to manipulate and annihilate video files with media e
 ## Demos
 Side-by-side comparison of original vs processed (ANNIHILATED) videos:
 
-### Bruno Mars - 24k Magic (Original vs Annihilated):
-<video width="1280" height="360" controls>
-  <source src="demos/24k.mp4" type="video/mp4">
-</video>
+### Demo Videos
 
-### Bruno Mars - Treasure (Original vs Annihilated):
-<video width="1280" height="360" controls>
-  <source src="demos/bruno.mp4" type="video/mp4">
-</video>
+Side-by-side comparisons of original vs annihilated videos (click thumbnails to download):
 
-### Daft Punk - Get Lucky (Original vs Annihilated):
-<video width="1280" height="360" controls>
-  <source src="demos/getlucky.mp4" type="video/mp4">
-</video>
+#### Bruno Mars - 24k Magic
+[![24k Magic Demo](demos/24k_thumb.jpg)](demos/24k.mp4)
 
-### Breakbot - Baby I'm Yours (Original vs Annihilated):
-<video width="1280" height="360" controls>
-  <source src="demos/babyimyours.mp4" type="video/mp4">
-</video>
+#### Bruno Mars - Treasure  
+[![Treasure Demo](demos/bruno_thumb.jpg)](demos/bruno.mp4)
 
-### The Weeknd - I Feel It Coming (Original vs Annihilated):
-<video width="1280" height="360" controls>
-  <source src="demos/ifeelitcoming.mp4" type="video/mp4">
-</video>
+#### Daft Punk - Get Lucky
+[![Get Lucky Demo](demos/getlucky_thumb.jpg)](demos/getlucky.mp4)
+
+#### Breakbot - Baby I'm Yours
+[![Baby I'm Yours Demo](demos/babyimyours_thumb.jpg)](demos/babyimyours.mp4)
+
+#### The Weeknd - I Feel It Coming
+[![I Feel It Coming Demo](demos/ifeelitcoming_thumb.jpg)](demos/ifeelitcoming.mp4)
+
+**Note**: Click on any thumbnail to download the full demo video. GitHub doesn't embed video players in README files, so these thumbnails link to the actual video files.
 
 ### Notes
 - The music video of the respective songs are used for the demos. I do not own the rights to these videos and they are used for demonstration purposes only. I made sure that the demos are not too long and won't upset anyone.
