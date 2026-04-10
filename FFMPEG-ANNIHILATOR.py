@@ -509,10 +509,12 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         
         # Frame rate
         video_layout.addWidget(QLabel("Frame Rate:"), 3, 0)
-        self.framerate_combo = QComboBox()
-        self.framerate_combo.addItems(["5", "10", "15", "20", "24", "30"])
-        self.framerate_combo.setCurrentText("30")
-        video_layout.addWidget(self.framerate_combo, 3, 1, 1, 2)
+        self.framerate_input = QDoubleSpinBox()
+        self.framerate_input.setRange(0.1, 120.0)  # 0.1 to 120 fps
+        self.framerate_input.setValue(30.0)  # Default 30 fps
+        self.framerate_input.setSuffix(" fps")
+        self.framerate_input.setDecimals(2)  # Allow 2 decimal places
+        video_layout.addWidget(self.framerate_input, 3, 1, 1, 2)
         
         # Media effects
         self.vhs_checkbox = QCheckBox("Add Media Artifacts")
@@ -699,7 +701,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         
         # Settings changes
         self.resolution_slider.valueChanged.connect(self.update_processed_specs)
-        self.framerate_combo.currentTextChanged.connect(self.update_processed_specs)
+        self.framerate_input.valueChanged.connect(self.update_processed_specs)
         self.audio_bitrate_combo.currentTextChanged.connect(self.update_processed_specs)
         
     def update_resolution_label(self, value):
@@ -733,7 +735,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             self.resolution_slider.valueChanged.connect(self.debounced_update_previews)
             self.blur_slider.valueChanged.connect(self.debounced_update_previews)
             self.compression_slider.valueChanged.connect(self.debounced_update_previews)
-            self.framerate_combo.currentTextChanged.connect(self.debounced_update_previews)
+            self.framerate_input.valueChanged.connect(self.debounced_update_previews)
             self.audio_bitrate_combo.currentTextChanged.connect(self.debounced_update_previews)
             self.highpass_slider.valueChanged.connect(self.debounced_update_previews)
             self.lowpass_slider.valueChanged.connect(self.debounced_update_previews)
@@ -1018,13 +1020,13 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             except:
                 processed['resolution'] = 'Calculated'
         
-        processed['frame_rate'] = f"{self.framerate_combo.currentText()} fps"
+        processed['frame_rate'] = f"{self.framerate_input.value():.2f} fps"
         
         return processed
         
     def get_settings_hash(self):
         """Calculate hash of current settings to detect changes"""
-        settings = f"{self.resolution_slider.value()}{self.blur_slider.value()}{self.compression_slider.value()}{self.framerate_combo.currentText()}{self.audio_bitrate_combo.currentText()}{self.highpass_slider.value()}{self.lowpass_slider.value()}{self.volume_slider.value()}{self.sample_rate_combo.currentText()}{self.vhs_checkbox.isChecked()}{self.enable_audio_checkbox.isChecked()}{self.reverb_checkbox.isChecked()}{self.distortion_checkbox.isChecked()}"
+        settings = f"{self.resolution_slider.value()}{self.blur_slider.value()}{self.compression_slider.value()}{self.framerate_input.value()}{self.audio_bitrate_combo.currentText()}{self.highpass_slider.value()}{self.lowpass_slider.value()}{self.volume_slider.value()}{self.sample_rate_combo.currentText()}{self.vhs_checkbox.isChecked()}{self.enable_audio_checkbox.isChecked()}{self.reverb_checkbox.isChecked()}{self.distortion_checkbox.isChecked()}"
         return hash(settings)
     
     def debounced_update_previews(self):
@@ -1127,7 +1129,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             video_filters.append(f"gblur=sigma={blur_amount}")
         
         # Frame rate
-        frame_rate = int(self.framerate_combo.currentText())
+        frame_rate = self.framerate_input.value()
         video_filters.append(f"fps={frame_rate}")
         
         # Media effects
@@ -1279,7 +1281,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             video_filters.append(f"gblur=sigma={blur_amount}")
         
         # Frame rate
-        frame_rate = int(self.framerate_combo.currentText())
+        frame_rate = self.framerate_input.value()
         video_filters.append(f"fps={frame_rate}")
         
         # Media effects
@@ -1474,7 +1476,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             video_filters.append(f"gblur=sigma={blur_amount}")
         
         # Frame rate
-        frame_rate = int(self.framerate_combo.currentText())
+        frame_rate = self.framerate_input.value()
         video_filters.append(f"fps={frame_rate}")
         
         # Media effects
