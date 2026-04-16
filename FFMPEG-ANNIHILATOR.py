@@ -15,6 +15,15 @@ import shutil
 from pathlib import Path
 from PIL import Image, ImageQt
 
+# Set Windows AppUserModelID for proper taskbar icon
+if sys.platform == 'win32':
+    import ctypes
+    from ctypes import wintypes
+    
+    # Set AppUserModelID before QApplication creation
+    app_id = "FFMPEGMediaAnnihilator.App"
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QPushButton, QSlider, QComboBox, QCheckBox,
@@ -84,7 +93,12 @@ class FFmpegWorker(QThread):
             
             success = returncode == 0
             if not success:
-                error_msg = f"Exit code: {returncode}"
+                # Convert large unsigned return codes to signed for better readability
+                if returncode > 2**31:
+                    signed_code = returncode - 2**32
+                    error_msg = f"Exit code: {returncode} (signed: {signed_code})"
+                else:
+                    error_msg = f"Exit code: {returncode}"
             else:
                 error_msg = ""
                 
@@ -197,31 +211,41 @@ class ModernGroupBox(QGroupBox):
 
 
 class VideoPreviewWidget(QWidget):
-    """Widget for displaying video preview"""
+    """Widget for displaying video preview with multiple frames"""
     def __init__(self):
         super().__init__()
+        self.preview_frames = []
         self.setup_ui()
         
     def setup_ui(self):
         layout = QVBoxLayout()
         
-        # Preview label
-        self.preview_label = QLabel()
-        self.preview_label.setFixedSize(400, 225)
-        self.preview_label.setStyleSheet("""
-            QLabel {
-                background-color: #1e1e1e;
-                border: 2px solid #444;
-                border-radius: 8px;
-                color: #888;
-                font-size: 14px;
-            }
-        """)
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setText("No Preview Available")
+        # Create grid layout for multiple preview frames
+        self.grid_layout = QGridLayout()
+        self.grid_layout.setSpacing(5)
         
-        layout.addWidget(self.preview_label)
+        # Create 4 preview frames (2x2 grid)
+        for i in range(4):
+            frame_label = QLabel()
+            frame_label.setFixedSize(190, 107)  # Smaller size for grid
+            frame_label.setStyleSheet("""
+                QLabel {
+                    background-color: #1e1e1e;
+                    border: 2px solid #444;
+                    border-radius: 6px;
+                    color: #888;
+                    font-size: 10px;
+                }
+            """)
+            frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            frame_label.setText(f"Frame {i+1}\nNo Preview")
+            
+            self.preview_frames.append(frame_label)
+            row = i // 2
+            col = i % 2
+            self.grid_layout.addWidget(frame_label, row, col)
         
+        layout.addLayout(self.grid_layout)
         self.setLayout(layout)
 
 
@@ -366,6 +390,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         super().__init__()
         self.input_file = None
         self.output_file = None
+        self.media_type = None  # 'video' or 'audio'
         self.temp_dir = tempfile.mkdtemp()
         self.worker = None
         
@@ -382,6 +407,12 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.setup_ui()
         self.setWindowTitle("FFMPEG Media Annihilator")
         self.setGeometry(100, 100, 1200, 800)
+        
+        # Set window and application icon
+        icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon512.png")
+        app_icon = QIcon(icon_path)
+        self.setWindowIcon(app_icon)
+        QApplication.instance().setWindowIcon(app_icon)
         
         # Set application style
         self.setStyleSheet("""
@@ -457,7 +488,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         
         # Input file
         input_layout = QHBoxLayout()
-        self.input_btn = ModernButton("Select Input Video", "#2196F3")
+        self.input_btn = ModernButton("Select Input Media", "#2196F3")
         self.input_label = QLabel("No file selected")
         self.input_label.setStyleSheet("color: #888; padding: 5px;")
         input_layout.addWidget(self.input_btn)
@@ -478,6 +509,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         
         # Video Effects
         video_group = ModernGroupBox("Video Effects")
+        video_group.setObjectName("Video Effects")
         video_layout = QGridLayout()
         
         # Resolution scale
@@ -568,32 +600,56 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.earrape_label.hide()  # Initially hidden
         audio_layout.addWidget(self.earrape_label, 5, 0, 1, 3)
         
+        # Pitch control
+        audio_layout.addWidget(QLabel("Pitch:"), 6, 0)
+        self.pitch_slider = QSlider(Qt.Orientation.Horizontal)
+        self.pitch_slider.setRange(-12, 12)  # -12 to +12 semitones (one octave up/down)
+        self.pitch_slider.setValue(0)
+        self.pitch_label = QLabel("0 st")
+        audio_layout.addWidget(self.pitch_slider, 6, 1)
+        audio_layout.addWidget(self.pitch_label, 6, 2)
+        
+        # Speed control
+        audio_layout.addWidget(QLabel("Speed:"), 7, 0)
+        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.speed_slider.setRange(50, 200)  # 0.5x to 2x speed
+        self.speed_slider.setValue(100)
+        self.speed_label = QLabel("1.0x")
+        audio_layout.addWidget(self.speed_slider, 7, 1)
+        audio_layout.addWidget(self.speed_label, 7, 2)
+        
         # Reverb effect
         self.reverb_checkbox = QCheckBox("Add Reverb Effect")
-        audio_layout.addWidget(self.reverb_checkbox, 6, 0, 1, 3)
+        audio_layout.addWidget(self.reverb_checkbox, 8, 0, 1, 3)
         
         # Distortion effect
         self.distortion_checkbox = QCheckBox("Add Distortion")
-        audio_layout.addWidget(self.distortion_checkbox, 7, 0, 1, 3)
+        audio_layout.addWidget(self.distortion_checkbox, 9, 0, 1, 3)
         
         # Sample rate
-        audio_layout.addWidget(QLabel("Sample Rate:"), 8, 0)
+        audio_layout.addWidget(QLabel("Sample Rate:"), 10, 0)
         self.sample_rate_combo = QComboBox()
         self.sample_rate_combo.addItems(["48000", "44100", "22050", "11025", "8000"])
         self.sample_rate_combo.setCurrentText("22050")  # Default to vintage quality
-        audio_layout.addWidget(self.sample_rate_combo, 8, 1, 1, 2)
+        audio_layout.addWidget(self.sample_rate_combo, 10, 1, 1, 2)
         
         # Enable audio
         self.enable_audio_checkbox = QCheckBox("Enable Audio Processing")
         self.enable_audio_checkbox.setChecked(True)
-        audio_layout.addWidget(self.enable_audio_checkbox, 9, 0, 1, 3)
+        audio_layout.addWidget(self.enable_audio_checkbox, 11, 0, 1, 3)
+        
+        # Enhanced audio processing (for video files)
+        self.enhanced_audio_checkbox = QCheckBox("Enhanced Audio Processing (Extreme Mode)")
+        self.enhanced_audio_checkbox.setChecked(False)
+        self.enhanced_audio_checkbox.setToolTip("Uses multi-stage pipeline for maximum audio effect intensity (video files only)")
+        audio_layout.addWidget(self.enhanced_audio_checkbox, 12, 0, 1, 3)
         
         audio_group.setLayout(audio_layout)
         left_layout.addWidget(audio_group)
         
         # Action buttons
         action_layout = QHBoxLayout()
-        self.process_btn = ModernButton("Process Video", "primary")
+        self.process_btn = ModernButton("Process Media", "primary")
         self.preview_btn = ModernButton("Update Preview", "secondary")
         self.settings_btn = ModernButton("Settings", "settings")
         self.preview_btn.setEnabled(False)  # Enable only when file is selected
@@ -684,7 +740,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.output_btn.clicked.connect(self.select_output_file)
         
         # Action buttons
-        self.process_btn.clicked.connect(self.process_video)
+        self.process_btn.clicked.connect(self.process_media_enhanced)
         self.preview_btn.clicked.connect(self.manual_update_preview)
         self.settings_btn.clicked.connect(self.open_settings)
         
@@ -698,6 +754,8 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.highpass_slider.valueChanged.connect(self.update_highpass_label)
         self.lowpass_slider.valueChanged.connect(self.update_lowpass_label)
         self.volume_slider.valueChanged.connect(self.update_volume_label)
+        self.pitch_slider.valueChanged.connect(self.update_pitch_label)
+        self.speed_slider.valueChanged.connect(self.update_speed_label)
         
         # Settings changes
         self.resolution_slider.valueChanged.connect(self.update_processed_specs)
@@ -727,6 +785,12 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             self.earrape_label.show()
         else:
             self.earrape_label.hide()
+    
+    def update_pitch_label(self, value):
+        self.pitch_label.setText(f"{value} st")
+    
+    def update_speed_label(self, value):
+        self.speed_label.setText(f"{value/100:.1f}x")
         
             
     def setup_preview_connections(self):
@@ -740,11 +804,12 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             self.highpass_slider.valueChanged.connect(self.debounced_update_previews)
             self.lowpass_slider.valueChanged.connect(self.debounced_update_previews)
             self.volume_slider.valueChanged.connect(self.debounced_update_previews)
+            self.pitch_slider.valueChanged.connect(self.debounced_update_previews)
+            self.speed_slider.valueChanged.connect(self.debounced_update_previews)
             self.sample_rate_combo.currentTextChanged.connect(self.debounced_update_previews)
             self.vhs_checkbox.stateChanged.connect(self.debounced_update_previews)
             self.enable_audio_checkbox.stateChanged.connect(self.debounced_update_previews)
-            self.reverb_checkbox.stateChanged.connect(self.debounced_update_previews)
-            self.distortion_checkbox.stateChanged.connect(self.debounced_update_previews)
+            self.enhanced_audio_checkbox.stateChanged.connect(self.debounced_update_previews)
     
     def manual_update_preview(self):
         """Manually trigger preview update"""
@@ -902,16 +967,25 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
     
     def select_input_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Video File", "",
-            "Video Files (*.mp4 *.avi *.mov *.mkv *.webm *.flv);;All Files (*)"
+            self, "Select Media File", "",
+            "Media Files (*.mp4 *.avi *.mov *.mkv *.webm *.flv *.mp3 *.wav *.ogg *.flac *.aac);;Video Files (*.mp4 *.avi *.mov *.mkv *.webm *.flv);;Audio Files (*.mp3 *.wav *.ogg *.flac *.aac);;All Files (*)"
         )
         if file_path:
             self.input_file = file_path
             self.input_label.setText(Path(file_path).name)
             
-            if not self.output_file:
-                input_path = Path(file_path)
-                self.output_file = str(input_path.parent / f"{input_path.stem}_annihilated.mp4")
+            # Detect media type
+            self.detect_media_type(file_path)
+            
+            # Always update output file when input changes to ensure correct extension
+            input_path = Path(file_path)
+            # Use appropriate extension based on media type
+            ext = '.mp3' if self.media_type == 'audio' else '.mp4'
+            new_output_file = str(input_path.parent / f"{input_path.stem}_annihilated{ext}")
+            
+            # Only update if output file is empty or has wrong extension
+            if not self.output_file or not Path(self.output_file).suffix.lower() == ext.lower():
+                self.output_file = new_output_file
                 self.output_label.setText(Path(self.output_file).name)
             
             # Enable preview button
@@ -921,6 +995,114 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             self.last_settings_hash = None
             
             self.update_video_info_display()
+            self.update_ui_for_media_type()
+            
+    def detect_media_type(self, file_path):
+        """Detect if the file is video or audio based on extension and ffprobe"""
+        file_ext = Path(file_path).suffix.lower()
+        audio_extensions = {'.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'}
+        video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv'}
+        
+        old_media_type = self.media_type
+        
+        if file_ext in audio_extensions:
+            self.media_type = 'audio'
+        elif file_ext in video_extensions:
+            self.media_type = 'video'
+        else:
+            # Use ffprobe to detect media type if extension is unknown
+            try:
+                cmd = ["ffprobe", "-v", "quiet", "-select_streams", "v:0", "-show_entries", "stream=codec_type", "-of", "csv=p=0", file_path]
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                if result.stdout.strip():
+                    self.media_type = 'video'
+                else:
+                    self.media_type = 'audio'
+            except:
+                # Fallback to audio if detection fails
+                self.media_type = 'audio'
+        
+        # Debug output for media type changes
+        if old_media_type != self.media_type:
+            print(f"Media type changed from {old_media_type} to {self.media_type} for {Path(file_path).name}")
+    
+    def update_ui_for_media_type(self):
+        """Update UI based on media type - hide video effects and data comparison for audio files"""
+        video_group = self.findChild(ModernGroupBox, "Video Effects")
+        
+        if self.media_type == 'audio':
+            # Hide video effects group completely for audio files
+            if video_group:
+                video_group.hide()
+            
+            # Hide data comparison section for audio files
+            if hasattr(self, 'original_info') and hasattr(self, 'processed_info'):
+                self.original_info.hide()
+                self.processed_info.hide()
+            
+            # Hide enhanced audio checkbox (only for video files)
+            if hasattr(self, 'enhanced_audio_checkbox'):
+                self.enhanced_audio_checkbox.hide()
+            
+            # Show pitch and speed controls for audio files
+            if hasattr(self, 'pitch_slider'):
+                self.pitch_slider.show()
+            if hasattr(self, 'pitch_label'):
+                self.pitch_label.show()
+            # Show the "Pitch:" label
+            pitch_labels = [widget for widget in self.findChildren(QLabel) if widget.text() == "Pitch:"]
+            for label in pitch_labels:
+                label.show()
+            
+            if hasattr(self, 'speed_slider'):
+                self.speed_slider.show()
+            if hasattr(self, 'speed_label'):
+                self.speed_label.show()
+            # Show the "Speed:" label
+            speed_labels = [widget for widget in self.findChildren(QLabel) if widget.text() == "Speed:"]
+            for label in speed_labels:
+                label.show()
+            
+            # Update button text to reflect audio processing
+            self.input_btn.setText("Select Input Media")
+            
+        else:  # video
+            # Show video effects group for video files
+            if video_group:
+                video_group.show()
+                video_group.setEnabled(True)
+                video_group.setStyleSheet("")
+            
+            # Show data comparison section for video files
+            if hasattr(self, 'original_info') and hasattr(self, 'processed_info'):
+                self.original_info.show()
+                self.processed_info.show()
+            
+            # Show enhanced audio checkbox for video files
+            if hasattr(self, 'enhanced_audio_checkbox'):
+                self.enhanced_audio_checkbox.show()
+            
+            # Hide pitch and speed controls for video files (prevent A/V sync issues)
+            if hasattr(self, 'pitch_slider'):
+                self.pitch_slider.hide()
+            if hasattr(self, 'pitch_label'):
+                self.pitch_label.hide()
+            # Hide the "Pitch:" label
+            pitch_labels = [widget for widget in self.findChildren(QLabel) if widget.text() == "Pitch:"]
+            for label in pitch_labels:
+                label.hide()
+            
+            if hasattr(self, 'speed_slider'):
+                self.speed_slider.hide()
+            if hasattr(self, 'speed_label'):
+                self.speed_label.hide()
+            # Hide the "Speed:" label
+            speed_labels = [widget for widget in self.findChildren(QLabel) if widget.text() == "Speed:"]
+            for label in speed_labels:
+                label.hide()
+            
+            # Update button text to reflect video processing
+            self.input_btn.setText("Select Input Media")
             
     def select_output_file(self):
         if not self.input_file:
@@ -928,12 +1110,22 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             return
             
         input_path = Path(self.input_file)
-        default_name = f"{input_path.stem}_annihilated.mp4"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Processed Video", 
-            str(input_path.parent / default_name),
-            "MP4 Files (*.mp4);;AVI Files (*.avi);;MOV Files (*.mov);;All Files (*)"
-        )
+        
+        # Use appropriate default extension and dialog based on media type
+        if self.media_type == 'audio':
+            default_name = f"{input_path.stem}_annihilated.mp3"
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, "Save Processed Audio", 
+                str(input_path.parent / default_name),
+                "MP3 Files (*.mp3);;WAV Files (*.wav);;AAC Files (*.aac);;All Files (*)"
+            )
+        else:
+            default_name = f"{input_path.stem}_annihilated.mp4"
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, "Save Processed Video", 
+                str(input_path.parent / default_name),
+                "MP4 Files (*.mp4);;AVI Files (*.avi);;MOV Files (*.mov);;All Files (*)"
+            )
         if file_path:
             self.output_file = file_path
             self.output_label.setText(Path(file_path).name)
@@ -1026,7 +1218,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         
     def get_settings_hash(self):
         """Calculate hash of current settings to detect changes"""
-        settings = f"{self.resolution_slider.value()}{self.blur_slider.value()}{self.compression_slider.value()}{self.framerate_input.value()}{self.audio_bitrate_combo.currentText()}{self.highpass_slider.value()}{self.lowpass_slider.value()}{self.volume_slider.value()}{self.sample_rate_combo.currentText()}{self.vhs_checkbox.isChecked()}{self.enable_audio_checkbox.isChecked()}{self.reverb_checkbox.isChecked()}{self.distortion_checkbox.isChecked()}"
+        settings = f"{self.resolution_slider.value()}{self.blur_slider.value()}{self.compression_slider.value()}{self.framerate_input.value()}{self.audio_bitrate_combo.currentText()}{self.highpass_slider.value()}{self.lowpass_slider.value()}{self.volume_slider.value()}{self.pitch_slider.value()}{self.speed_slider.value()}{self.sample_rate_combo.currentText()}{self.vhs_checkbox.isChecked()}{self.enable_audio_checkbox.isChecked()}{self.enhanced_audio_checkbox.isChecked()}{self.reverb_checkbox.isChecked()}{self.distortion_checkbox.isChecked()}"
         return hash(settings)
     
     def debounced_update_previews(self):
@@ -1096,10 +1288,12 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
                 widget.bitrate_label.setText("No file selected")
             
             # Clear previews
-            self.original_preview_widget.preview_label.clear()
-            self.processed_preview_widget.preview_label.clear()
-            self.original_preview_widget.preview_label.setText("No Preview Available")
-            self.processed_preview_widget.preview_label.setText("No Preview Available")
+            for i, frame in enumerate(self.original_preview_widget.preview_frames):
+                frame.clear()
+                frame.setText(f"Frame {i+1}\nNo Preview")
+            for i, frame in enumerate(self.processed_preview_widget.preview_frames):
+                frame.clear()
+                frame.setText(f"Frame {i+1}\nNo Preview")
                 
     def update_processed_specs(self):
         """Update processed video specs"""
@@ -1116,91 +1310,187 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             
         cmd = ["ffmpeg", "-i", self.input_file]
         
-        # Video filters
-        video_filters = []
-        
-        # Scale
-        scale = self.resolution_slider.value() / 100.0
-        video_filters.append(f"scale=iw*{scale}:ih*{scale}:flags=neighbor")
-        
-        # Blur
-        blur_amount = self.blur_slider.value() / 10.0
-        if blur_amount > 0:
-            video_filters.append(f"gblur=sigma={blur_amount}")
-        
-        # Frame rate
-        frame_rate = self.framerate_input.value()
-        video_filters.append(f"fps={frame_rate}")
-        
-        # Media effects
-        if self.vhs_checkbox.isChecked():
-            video_filters.extend([
-                "noise=alls=10:allf=t",
-                "eq=contrast=1.1:brightness=0.05:saturation=0.8",
-                "format=yuv420p,curves=master='0/0 0.2/0.1 0.4/0.3 0.6/0.7 0.8/0.9 1/1'"
-            ])
-        
-        if video_filters:
-            cmd.extend(["-vf", ",".join(video_filters)])
-        
-        # Audio filters
-        if self.enable_audio_checkbox.isChecked():
-            audio_filters = []
-            
-            # Volume control (always apply if changed) with explicit stereo
-            volume = self.volume_slider.value() / 100.0
-            if volume != 1.0:
-                audio_filters.append(f"volume={volume},pan=stereo|c0=c0|c1=c1")
-            
-            # High pass filter
-            highpass_freq = self.highpass_slider.value()
-            if highpass_freq > 0:
-                audio_filters.append(f"highpass=f={highpass_freq}")
-            
-            # Low pass filter
-            lowpass_freq = self.lowpass_slider.value()
-            if lowpass_freq > 0:
-                audio_filters.append(f"lowpass=f={lowpass_freq}")
-            
-            # Add effects that don't break sync
-            try:
-                # Reverb effect (safe for sync) - more pronounced echo, ensure stereo
-                if self.reverb_checkbox.isChecked():
-                    audio_filters.append("aecho=0.9:0.85:60:0.3")
+        # Handle audio-only files
+        if self.media_type == 'audio':
+            # Audio filters for audio-only files
+            if self.enable_audio_checkbox.isChecked():
+                audio_filters = []
                 
-                # Distortion effect (safe for sync) - ensure stereo
-                if self.distortion_checkbox.isChecked():
-                    audio_filters.append("acrusher=bits=6:level_in=2:level_out=2")
+                # Volume control (always apply if changed) with explicit stereo
+                volume = self.volume_slider.value() / 100.0
+                if volume != 1.0:
+                    audio_filters.append(f"volume={volume},pan=stereo|c0=c0|c1=c1")
+                
+                # High pass filter
+                highpass_freq = self.highpass_slider.value()
+                if highpass_freq > 0:
+                    audio_filters.append(f"highpass=f={highpass_freq}")
+                
+                # Low pass filter
+                lowpass_freq = self.lowpass_slider.value()
+                if lowpass_freq > 0:
+                    audio_filters.append(f"lowpass=f={lowpass_freq}")
+                
+                # Pitch control (semitones)
+                pitch_shift = self.pitch_slider.value()
+                if pitch_shift != 0:
+                    audio_filters.append(f"asetrate=r=44100*2^({pitch_shift}/12)")
+                
+                # Speed control (tempo)
+                speed_factor = self.speed_slider.value() / 100.0
+                if speed_factor != 1.0:
+                    audio_filters.append(f"atempo={speed_factor}")
+                
+                # Add effects that don't break sync
+                try:
+                    # Reverb effect (safe for sync) - more pronounced echo, ensure stereo
+                    if self.reverb_checkbox.isChecked():
+                        audio_filters.append("aecho=0.9:0.85:60:0.3")
                     
-                                    
-            except Exception:
-                # Skip complex effects if they cause issues
-                pass
+                    # Distortion effect (safe for sync) - ensure stereo
+                    if self.distortion_checkbox.isChecked():
+                        audio_filters.append("acrusher=bits=6:level_in=2:level_out=2")
+                        
+                                        
+                except Exception:
+                    # Skip complex effects if they cause issues
+                    pass
+                
+                # Apply audio filters if any
+                if audio_filters:
+                    cmd.extend(["-af", ",".join(audio_filters)])
             
-            # Apply audio filters if any
-            if audio_filters:
-                cmd.extend(["-af", ",".join(audio_filters)])
+            # Audio-only output settings
+            output_path = self.output_file
+            if not output_path.lower().endswith(('.mp3', '.wav', '.aac')):
+                output_path = str(Path(output_path).with_suffix('.mp3'))
             
-            # Audio quality settings
-            cmd.extend(["-ar", self.sample_rate_combo.currentText()])
-            cmd.extend(["-b:a", self.audio_bitrate_combo.currentText()])
-        
-        # Video compression
-        cmd.extend(["-crf", str(self.compression_slider.value())])
-        
-        # Output settings
-        output_path = self.output_file
-        if not output_path.lower().endswith('.mp4'):
-            output_path = str(Path(output_path).with_suffix('.mp4'))
-        
-        cmd.extend([
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-r", str(frame_rate),
-            "-c:a", "aac",
-            "-y",
-            output_path
-        ])
+            # Determine codec and quality based on output extension
+            if output_path.lower().endswith('.wav'):
+                # WAV output - use PCM codec, no bitrate compression
+                cmd.extend([
+                    "-vn",  # No video
+                    "-c:a", "pcm_s16le",  # Standard WAV codec
+                    "-ar", self.sample_rate_combo.currentText(),  # Sample rate only
+                    "-y",
+                    output_path
+                ])
+            elif output_path.lower().endswith('.aac'):
+                # AAC output - use AAC codec with appropriate bitrate
+                cmd.extend([
+                    "-vn",  # No video
+                    "-c:a", "aac",
+                    "-ar", self.sample_rate_combo.currentText(),
+                    "-b:a", self.audio_bitrate_combo.currentText(),  # Use selected bitrate
+                    "-y",
+                    output_path
+                ])
+            else:  # Default to MP3
+                cmd.extend([
+                    "-vn",  # No video
+                    "-c:a", "libmp3lame",
+                    "-ar", self.sample_rate_combo.currentText(),
+                    "-q:a", "2",  # MP3 quality
+                    "-y",
+                    output_path
+                ])
+            
+        else:  # Video files
+            # Video filters
+            video_filters = []
+            
+            # Scale
+            scale = self.resolution_slider.value() / 100.0
+            video_filters.append(f"scale=iw*{scale}:ih*{scale}:flags=neighbor")
+            
+            # Blur
+            blur_amount = self.blur_slider.value() / 10.0
+            if blur_amount > 0:
+                video_filters.append(f"gblur=sigma={blur_amount}")
+            
+            # Frame rate
+            frame_rate = self.framerate_input.value()
+            video_filters.append(f"fps={frame_rate}")
+            
+            # Media effects
+            if self.vhs_checkbox.isChecked():
+                video_filters.extend([
+                    "noise=alls=10:allf=t",
+                    "eq=contrast=1.1:brightness=0.05:saturation=0.8",
+                    "format=yuv420p,curves=master='0/0 0.2/0.1 0.4/0.3 0.6/0.7 0.8/0.9 1/1'"
+                ])
+            
+            if video_filters:
+                cmd.extend(["-vf", ",".join(video_filters)])
+            
+            # Audio filters
+            if self.enable_audio_checkbox.isChecked():
+                audio_filters = []
+                
+                # Volume control (always apply if changed) with explicit stereo
+                volume = self.volume_slider.value() / 100.0
+                if volume != 1.0:
+                    audio_filters.append(f"volume={volume},pan=stereo|c0=c0|c1=c1")
+                
+                # High pass filter
+                highpass_freq = self.highpass_slider.value()
+                if highpass_freq > 0:
+                    audio_filters.append(f"highpass=f={highpass_freq}")
+                
+                # Low pass filter
+                lowpass_freq = self.lowpass_slider.value()
+                if lowpass_freq > 0:
+                    audio_filters.append(f"lowpass=f={lowpass_freq}")
+                
+                # Pitch control (semitones)
+                pitch_shift = self.pitch_slider.value()
+                if pitch_shift != 0:
+                    audio_filters.append(f"asetrate=r=44100*2^({pitch_shift}/12)")
+                
+                # Speed control (tempo)
+                speed_factor = self.speed_slider.value() / 100.0
+                if speed_factor != 1.0:
+                    audio_filters.append(f"atempo={speed_factor}")
+                
+                # Add effects that don't break sync
+                try:
+                    # Reverb effect (safe for sync) - more pronounced echo, ensure stereo
+                    if self.reverb_checkbox.isChecked():
+                        audio_filters.append("aecho=0.9:0.85:60:0.3")
+                    
+                    # Distortion effect (safe for sync) - ensure stereo
+                    if self.distortion_checkbox.isChecked():
+                        audio_filters.append("acrusher=bits=6:level_in=2:level_out=2")
+                        
+                                        
+                except Exception:
+                    # Skip complex effects if they cause issues
+                    pass
+                
+                # Apply audio filters if any
+                if audio_filters:
+                    cmd.extend(["-af", ",".join(audio_filters)])
+                
+                # Audio quality settings
+                cmd.extend(["-ar", self.sample_rate_combo.currentText()])
+                cmd.extend(["-b:a", self.audio_bitrate_combo.currentText()])
+            
+            # Video compression
+            cmd.extend(["-crf", str(self.compression_slider.value())])
+            
+            # Output settings
+            output_path = self.output_file
+            if not output_path.lower().endswith('.mp4'):
+                output_path = str(Path(output_path).with_suffix('.mp4'))
+            
+            cmd.extend([
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-r", str(frame_rate),
+                "-c:a", "aac",
+                "-y",
+                output_path
+            ])
         
         return cmd
         
@@ -1263,96 +1553,147 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
     
     def build_ffmpeg_command_sync_safe(self):
         """Build FFMPEG command with sync-safe audio processing"""
+        return self.build_ffmpeg_command()  # Use the updated main method
+    
+    def process_media_enhanced(self):
+        """Process media using enhanced multi-stage pipeline for maximum audio intensity"""
         if not self.input_file or not self.output_file:
-            return None
+            QMessageBox.warning(self, "Warning", "Please select input and output files.")
+            return
+        
+        # Only use enhanced mode for video files with audio enabled
+        if self.media_type != 'video' or not self.enable_audio_checkbox.isChecked() or not self.enhanced_audio_checkbox.isChecked():
+            # Fall back to regular processing
+            self.process_video()
+            return
+        
+        try:
+            # Step 1: Extract audio from video
+            temp_audio = os.path.join(self.temp_dir, "extracted_audio.wav")
+            self.progress_label.setText("Step 1: Extracting audio...")
             
-        cmd = ["ffmpeg", "-i", self.input_file]
-        
-        # Video filters (unchanged)
-        video_filters = []
-        
-        # Scale
-        scale = self.resolution_slider.value() / 100.0
-        video_filters.append(f"scale=iw*{scale}:ih*{scale}:flags=neighbor")
-        
-        # Blur
-        blur_amount = self.blur_slider.value() / 10.0
-        if blur_amount > 0:
-            video_filters.append(f"gblur=sigma={blur_amount}")
-        
-        # Frame rate
-        frame_rate = self.framerate_input.value()
-        video_filters.append(f"fps={frame_rate}")
-        
-        # Media effects
-        if self.vhs_checkbox.isChecked():
-            video_filters.extend([
-                "noise=alls=10:allf=t",
-                "eq=contrast=1.1:brightness=0.05:saturation=0.8",
-                "format=yuv420p,curves=master='0/0 0.2/0.1 0.4/0.3 0.6/0.7 0.8/0.9 1/1'"
-            ])
-        
-        if video_filters:
-            cmd.extend(["-vf", ",".join(video_filters)])
-        
-        # Sync-safe audio filters
-        if self.enable_audio_checkbox.isChecked():
+            extract_cmd = [
+                "ffmpeg", "-i", self.input_file,
+                "-vn", "-acodec", "pcm_s16le",
+                "-ar", self.sample_rate_combo.currentText(),
+                "-y", temp_audio
+            ]
+            
+            result = subprocess.run(extract_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise Exception(f"Audio extraction failed: {result.stderr}")
+            
+            # Step 2: Apply audio effects (same as audio-only mode)
+            temp_processed_audio = os.path.join(self.temp_dir, "processed_audio.wav")
+            self.progress_label.setText("Step 2: Applying audio effects...")
+            
+            # Build audio filter chain
             audio_filters = []
             
-            # Volume control (sync-safe) with explicit stereo
+            # Volume control
             volume = self.volume_slider.value() / 100.0
             if volume != 1.0:
                 audio_filters.append(f"volume={volume},pan=stereo|c0=c0|c1=c1")
             
-            # High pass filter (sync-safe)
+            # High pass filter
             highpass_freq = self.highpass_slider.value()
             if highpass_freq > 0:
                 audio_filters.append(f"highpass=f={highpass_freq}")
             
-            # Low pass filter (sync-safe)
+            # Low pass filter
             lowpass_freq = self.lowpass_slider.value()
             if lowpass_freq > 0:
                 audio_filters.append(f"lowpass=f={lowpass_freq}")
             
-                        
-            # Reverb effect (sync-safe) - more pronounced echo
+            # Reverb effect
             if self.reverb_checkbox.isChecked():
                 audio_filters.append("aecho=0.9:0.85:60:0.3")
             
-            # Distortion effect (sync-safe)
+            # Distortion effect
             if self.distortion_checkbox.isChecked():
                 audio_filters.append("acrusher=bits=6:level_in=2:level_out=2")
             
-                        
+            # Apply audio processing
+            audio_cmd = ["ffmpeg", "-i", temp_audio]
             if audio_filters:
-                cmd.extend(["-af", ",".join(audio_filters)])
+                audio_cmd.extend(["-af", ",".join(audio_filters)])
+            audio_cmd.extend(["-y", temp_processed_audio])
             
-            # Audio quality settings (sync-safe)
-            cmd.extend(["-ar", self.sample_rate_combo.currentText()])
-            cmd.extend(["-b:a", self.audio_bitrate_combo.currentText()])
-        
-        # Video compression
-        cmd.extend(["-crf", str(self.compression_slider.value())])
-        
-        # Output settings
-        output_path = self.output_file
-        if not output_path.lower().endswith('.mp4'):
-            output_path = str(Path(output_path).with_suffix('.mp4'))
-        
-        cmd.extend([
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-r", str(frame_rate),
-            "-c:a", "aac",
-            "-y",
-            output_path
-        ])
-        
-        return cmd
+            result = subprocess.run(audio_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise Exception(f"Audio processing failed: {result.stderr}")
+            
+            # Step 3: Process video separately (no audio)
+            temp_video = os.path.join(self.temp_dir, "processed_video.mp4")
+            self.progress_label.setText("Step 3: Processing video...")
+            
+            # Build video filter chain
+            video_filters = []
+            
+            # Scale
+            scale = self.resolution_slider.value() / 100.0
+            video_filters.append(f"scale=iw*{scale}:ih*{scale}:flags=neighbor")
+            
+            # Blur
+            blur_amount = self.blur_slider.value() / 10.0
+            if blur_amount > 0:
+                video_filters.append(f"gblur=sigma={blur_amount}")
+            
+            # Frame rate
+            frame_rate = self.framerate_input.value()
+            video_filters.append(f"fps={frame_rate}")
+            
+            # Media effects
+            if self.vhs_checkbox.isChecked():
+                video_filters.extend([
+                    "noise=alls=10:allf=t",
+                    "eq=contrast=1.1:brightness=0.05:saturation=0.8",
+                    "format=yuv420p,curves=master='0/0 0.2/0.1 0.4/0.3 0.6/0.7 0.8/0.9 1/1'"
+                ])
+            
+            # Process video
+            video_cmd = ["ffmpeg", "-i", self.input_file, "-an"]
+            if video_filters:
+                video_cmd.extend(["-vf", ",".join(video_filters)])
+            video_cmd.extend([
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", str(self.compression_slider.value()),
+                "-r", str(frame_rate),
+                "-y", temp_video
+            ])
+            
+            result = subprocess.run(video_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise Exception(f"Video processing failed: {result.stderr}")
+            
+            # Step 4: Merge processed audio back into video
+            self.progress_label.setText("Step 4: Merging audio and video...")
+            
+            merge_cmd = [
+                "ffmpeg", "-i", temp_video, "-i", temp_processed_audio,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", self.audio_bitrate_combo.currentText(),
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-shortest",
+                "-y", self.output_file
+            ]
+            
+            result = subprocess.run(merge_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise Exception(f"Merging failed: {result.stderr}")
+            
+            self.progress_label.setText("Enhanced processing complete!")
+            self.processing_finished(True, "")
+            
+        except Exception as e:
+            self.processing_finished(False, str(e))
     
     def processing_finished_final(self, success, error_msg, original_reverb, original_distortion):
         """Final processing completion - restore settings"""
-        # Restore original settings
+        # ... (rest of the code remains the same)
         self.reverb_checkbox.setChecked(original_reverb)
         self.distortion_checkbox.setChecked(original_distortion)
         
@@ -1429,31 +1770,51 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             return True
         except subprocess.CalledProcessError:
             return False
+    
+    def extract_frame_at_time(self, input_path, output_path, time_point):
+        """Extract a single frame at specific time point"""
+        try:
+            cmd = [
+                "ffmpeg", "-ss", time_point, "-i", input_path,
+                "-vframes", "1", "-q:v", "2", "-y", output_path
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            return True
+        except subprocess.CalledProcessError:
+            return False
             
     def show_original_preview(self):
-        """Show original video frame in original preview"""
+        """Show multiple original video frames in original preview"""
         if not self.input_file:
             return
         
-        temp_frame = os.path.join(self.temp_dir, "original_frame.jpg")
-        if self.extract_frame(self.input_file, temp_frame):
-            self.display_preview_image(temp_frame, "original")
+        # Extract frames at different time points (1, 3, 5, 7 seconds)
+        time_points = ["00:00:01", "00:00:03", "00:00:05", "00:00:07"]
+        
+        for i, time_point in enumerate(time_points):
+            temp_frame = os.path.join(self.temp_dir, f"original_frame_{i}.jpg")
+            if self.extract_frame_at_time(self.input_file, temp_frame, time_point):
+                self.display_preview_image(temp_frame, "original", frame_index=i)
             
     def show_effects_preview(self):
-        """Show effects preview in processed preview widget"""
+        """Show effects preview with multiple frames in processed preview widget"""
         if not self.input_file:
             return
         
-        temp_frame = os.path.join(self.temp_dir, "effects_frame.jpg")
+        # Generate frames at different time points (1, 3, 5, 7 seconds)
+        time_points = ["00:00:01", "00:00:03", "00:00:05", "00:00:07"]
         
-        # Build optimized frame-only command (no audio processing)
-        cmd = self.build_preview_frame_command()
-        if cmd:
-            try:
-                subprocess.run(cmd, check=True, capture_output=True)
-                self.display_preview_image(temp_frame, "processed")
-            except subprocess.CalledProcessError:
-                pass
+        for i, time_point in enumerate(time_points):
+            temp_frame = os.path.join(self.temp_dir, f"effects_frame_{i}.jpg")
+            
+            # Build optimized frame-only command for this time point
+            cmd = self.build_preview_frame_command_at_time(temp_frame, time_point)
+            if cmd:
+                try:
+                    subprocess.run(cmd, check=True, capture_output=True)
+                    self.display_preview_image(temp_frame, "processed", frame_index=i)
+                except subprocess.CalledProcessError:
+                    pass
     
     def build_preview_frame_command(self):
         """Build optimized command for single frame preview (video only)"""
@@ -1503,25 +1864,89 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         ])
         
         return cmd
+    
+    def build_preview_frame_command_at_time(self, output_path, time_point):
+        """Build optimized command for single frame preview at specific time"""
+        if not self.input_file:
+            return None
+            
+        cmd = ["ffmpeg", "-ss", time_point, "-i", self.input_file]
+        
+        # Video filters only (no audio)
+        video_filters = []
+        
+        # Scale
+        scale = self.resolution_slider.value() / 100.0
+        video_filters.append(f"scale=iw*{scale}:ih*{scale}:flags=neighbor")
+        
+        # Blur
+        blur_amount = self.blur_slider.value() / 10.0
+        if blur_amount > 0:
+            video_filters.append(f"gblur=sigma={blur_amount}")
+        
+        # Frame rate
+        frame_rate = self.framerate_input.value()
+        video_filters.append(f"fps={frame_rate}")
+        
+        # Media effects
+        if self.vhs_checkbox.isChecked():
+            video_filters.extend([
+                "eq=brightness=0.05:contrast=1.2:saturation=0.8",
+                "curves=all='0/0 0.2/0.1 0.5/0.6 1/1'",
+                "noise=alls=10:allf=t+u",
+                "format=rgb24,format=yuv420p"
+            ])
+        
+        # Add video filters
+        if video_filters:
+            cmd.extend(["-vf", ",".join(video_filters)])
+        
+        # Frame extraction settings
+        cmd.extend([
+            "-vframes", "1",    # Extract only 1 frame
+            "-q:v", "2",        # High quality
+            "-an",              # No audio processing!
+            "-y",
+            output_path
+        ])
+        
+        return cmd
                         
-    def display_preview_image(self, image_path, widget_type="processed"):
-        """Display image in specified preview widget"""
+    def display_preview_image(self, image_path, widget_type="processed", frame_index=0):
+        """Display image in specified preview widget frame"""
         try:
             pixmap = QPixmap(image_path)
+            if pixmap.isNull():
+                # Handle null pixmap (file doesn't exist or can't be loaded)
+                if widget_type == "original":
+                    if frame_index < len(self.original_preview_widget.preview_frames):
+                        self.original_preview_widget.preview_frames[frame_index].setText("Frame Failed")
+                else:
+                    if frame_index < len(self.processed_preview_widget.preview_frames):
+                        self.processed_preview_widget.preview_frames[frame_index].setText("Frame Failed")
+                return
+                
+            # Scale pixmap to fit the smaller frame size
             scaled_pixmap = pixmap.scaled(
-                400, 225, 
+                190, 107,  # Match the frame size
                 Qt.AspectRatioMode.KeepAspectRatio, 
                 Qt.TransformationMode.SmoothTransformation
             )
+            
+            # Display in the appropriate frame
             if widget_type == "original":
-                self.original_preview_widget.preview_label.setPixmap(scaled_pixmap)
+                if frame_index < len(self.original_preview_widget.preview_frames):
+                    self.original_preview_widget.preview_frames[frame_index].setPixmap(scaled_pixmap)
             else:
-                self.processed_preview_widget.preview_label.setPixmap(scaled_pixmap)
+                if frame_index < len(self.processed_preview_widget.preview_frames):
+                    self.processed_preview_widget.preview_frames[frame_index].setPixmap(scaled_pixmap)
         except:
             if widget_type == "original":
-                self.original_preview_widget.preview_label.setText("Failed to load image")
+                if frame_index < len(self.original_preview_widget.preview_frames):
+                    self.original_preview_widget.preview_frames[frame_index].setText("Frame Error")
             else:
-                self.processed_preview_widget.preview_label.setText("Failed to load image")
+                if frame_index < len(self.processed_preview_widget.preview_frames):
+                    self.processed_preview_widget.preview_frames[frame_index].setText("Frame Error")
             
                 
     def closeEvent(self, event):

@@ -1,57 +1,51 @@
-# FFMPEG Media Annihilator
+# FFMPEG Media Annihilator 
+<img src="https://img.shields.io/badge/Python-3.6+-blue?style=for-the-badge&logo=python&logoColor=white">
+<img src="https://img.shields.io/badge/FFMPEG-Required-orange?style=for-the-badge&logo=ffmpeg&logoColor=white">
+<img src="https://img.shields.io/badge/PyQt6-GUI-red?style=for-the-badge&logo=pyqt&logoColor=white">
+<img src="assets/icon256.png" width="256" height="256">
 
-A powerful GUI application to manipulate and annihilate video files with media effects using FFMPEG.
+
+A powerful GUI application to manipulate and annihilate media files with extreme effects using FFMPEG. Now supports both video and audio processing with enhanced multi-stage pipeline for maximum audio intensity!
 
 
 ## Demos
-Side-by-side comparison of original vs processed (ANNIHILATED) videos:
 
-### Demo Videos
+For comprehensive demo showcases and side-by-side comparisons, see **[DEMOS.md](./DEMOS.md)**
 
-Side-by-side comparisons of original vs annihilated videos (click thumbnails to view):
+### Quick Preview
+- **Video Processing**: See original vs annihilated videos
+- **Audio Processing**: Hear original vs processed audio
+- **Side-by-Side**: Direct comparison of effects
+- **Educational**: Demonstrates software capabilities
 
-#### Bruno Mars - 24k Magic
-[![24k Magic Demo](demos/24k_thumb.jpg)](https://files.catbox.moe/hntxfh.mp4)
-
-#### Bruno Mars - Treasure  
-[![Treasure Demo](demos/bruno_thumb.jpg)](https://files.catbox.moe/t7f0ry.mp4)
-
-#### Daft Punk - Get Lucky
-[![Get Lucky Demo](demos/getlucky_thumb.jpg)](https://files.catbox.moe/kn8c1o.mp4)
-
-#### Breakbot - Baby I'm Yours
-[![Baby I'm Yours Demo](demos/babyimyours_thumb.jpg)](https://files.catbox.moe/upa53y.mp4)
-
-#### The Weeknd - I Feel It Coming
-[![I Feel It Coming Demo](demos/ifeelitcoming_thumb.jpg)](https://files.catbox.moe/d9y3eo.mp4)
-
-#### Blur - Chemical World
-[![Chemical World Demo](demos/chemiworld_thumb.jpg)](https://files.catbox.moe/8g5d0p.mp4)
-
-**Note**: Click on any thumbnail to download the full demo video. GitHub doesn't embed video players in README files, so these thumbnails link to the actual video files.
-
-### Notes
-- The music video of the respective songs are used for the demos. I do not own the rights to these videos and they are used for demonstration purposes only. I made sure that the demos are not too long and won't upset anyone.
-- The demos are side-by-side comparisons of original vs processed videos. The processed videos are the "ANNIHILATED" versions.
-- The videos are processed using the default settings of the application. Which you can tune however you want.
-- The side-by-side videos are created using the `compare_videos_ffmpeg.ps1` script which you can use to create your own comparisons. I probably won't be maintaining that script, so if it breaks, you're on your own.
+**Note**: All demos are for educational purposes only. Original content rights belong to respective owners.
 
 ## Features
+
+### Media Support
+- **Video Processing**: Full video effects with audio processing
+- **Audio-Only Processing**: Dedicated audio file support (MP3, WAV, FLAC, OGG, AAC)
+- **Smart UI**: Automatically hides video controls for audio files
+- **Enhanced Audio Mode**: Multi-stage pipeline for maximum effect intensity
 
 ### Video Effects
 - **Resolution Scaling**: Reduce video resolution to 10%-100% of original
 - **Blur**: Apply Gaussian blur (0-10 sigma)
 - **Compression**: Adjust CRF (18-51) for compression artifacts
 - **Media Artifacts**: Add noise, color shifts, and scanlines for authentic media degradation
+- **Frame Rate Control**: Adjust playback speed (0.1-120 fps)
 
 ### Audio Effects
 - **Volume Control**: 0% to 500% boost (earrape capable!)
+- **Pitch Control**: Adjust pitch in semitones (-12 to +12, one octave range)
+- **Speed Control**: Change playback speed (0.5x to 2.0x)
 - **Compression**: Reduce audio bitrate (16k-64k)
 - **High Pass Filter**: Remove low frequencies (0-1000Hz)
 - **Low Pass Filter**: Remove high frequencies (1000-8000Hz)
 - **Reverb**: Add echo/delay effects
 - **Distortion**: Bit-crushing for gritty texture
 - **Sample Rate**: Quality reduction (8kHz-48kHz)
+- **Enhanced Processing**: Multi-stage pipeline eliminates A/V sync constraints
 
 ### GUI Features
 - Modern PyQt6 interface with dark theme
@@ -63,6 +57,7 @@ Side-by-side comparisons of original vs annihilated videos (click thumbnails to 
 - Automatic fallback for complex audio effects
 - FFMPEG command preview
 - Cross-platform compatibility
+- Adaptive UI based on media type
 
 
 ## Requirements
@@ -78,16 +73,30 @@ Side-by-side comparisons of original vs annihilated videos (click thumbnails to 
 3. Run the GUI application:
 
 ```bash
-python ffmpeg_annihilator.py
+python FFMPEG-ANNIHILATOR.py
 ```
 
 ## Usage
 
-1. Click "Select Input Video" to choose your source video
-2. Adjust video and audio parameters using the sliders and controls
-3. Click "Preview Settings" to see the FFMPEG command that will be executed
-4. Click "Process Video" to apply the effects
-5. Wait for processing to complete
+1. **Select Media**: Click "Select Input Video/Audio" to choose your source file
+   - Video files: MP4, AVI, MOV, MKV, WebM, FLV
+   - Audio files: MP3, WAV, FLAC, OGG, AAC
+
+2. **Adjust Effects**: Use sliders and controls to customize effects
+   - Video effects automatically hide for audio files
+   - All audio effects available for both media types
+
+3. **Enhanced Mode** (Video files only):
+   - Enable "Enhanced Audio Processing" for maximum effect intensity
+   - Uses multi-stage pipeline for consistent audio effects
+
+4. **Preview**: Click "Update Preview" to see the FFMPEG command
+
+5. **Process**: Click "Process Media" to apply the effects
+   - Enhanced mode shows 4-step progress for video files
+   - Single-step processing for audio files
+
+6. **Wait**: Processing completes automatically with success notification
 
 ## Video Effects Explained
 
@@ -98,28 +107,58 @@ python ffmpeg_annihilator.py
 
 ## Audio Effects Explained
 
+- **Pitch Control**: Shifts audio pitch up or down in semitones without affecting speed
+- **Speed Control**: Changes playback speed while maintaining pitch quality
 - **Bitrate Reduction**: Creates compressed, low-quality audio
 - **High Pass Filter**: Removes bass frequencies for tinny sound
 - **Low Pass Filter**: Removes treble frequencies for muffled sound
 
 ## Supported Formats
 
-- Input: MP4, AVI, MOV, MKV, WebM, FLV
-- Output: MP4, AVI, MOV (default: MP4)
+### Video Files
+- **Input**: MP4, AVI, MOV, MKV, WebM, FLV, WMV
+- **Output**: MP4, AVI, MOV (default: MP4)
+
+### Audio Files
+- **Input**: MP3, WAV, FLAC, OGG, AAC, M4A
+- **Output**: MP3, WAV, AAC (default: MP3)
 
 ## Tips
 
+### Video Processing
 - Start with lower resolution (25%) and high compression (35+) for strong VHS effect
-- Combine audio filters (300Hz high pass + 3000Hz low pass) for phone-like quality
 - Enable VHS artifacts for authentic vintage look
-- Use "Preview Settings" to understand the FFMPEG command being generated
+- Use frame rate reduction for choppy, old-school feel
+
+### Audio Processing
+- Combine audio filters (300Hz high pass + 3000Hz low pass) for phone-like quality
+- Use enhanced mode for video files to get same intensity as audio-only processing
+- Volume 200%+ triggers earrape warnings for safety
+- Lower sample rates (8kHz) create vintage telephone quality
+- **Pitch Effects**: Use ±12 semitones for one octave up/down, smaller changes for subtle tuning
+- **Speed Effects**: 0.5x-0.8x for dramatic slow-motion, 1.2x-2.0x for fast-paced effects
+- **Combined Effects**: Pitch + speed together can create chipmunk or deep voice effects
+
+### Enhanced Audio Mode
+- Enable "Enhanced Audio Processing" for maximum effect intensity in video files
+- Eliminates A/V sync constraints for stronger audio effects
+- Uses 4-stage pipeline: Extract audio -> Process audio -> Process video -> Merge
+- Results in consistent audio effects across all media types
+
+### General
+- Use "Update Preview" to understand the FFMPEG command being generated
+- UI automatically adapts based on media type (video vs audio)
+- Enhanced mode only available for video files with audio processing enabled
 
 ## Troubleshooting
 
 - **FFMPEG not found**: Ensure FFMPEG is installed and in your system PATH
 - **Processing fails**: Check that input file exists and output location is writable
 - **No audio effects**: Make sure "Enable Audio Processing" is checked
+- **Enhanced mode not working**: Only available for video files with audio processing enabled
+- **Audio effects weaker in video files**: Enable "Enhanced Audio Processing" for maximum intensity
+- **Taskbar icon missing**: Ensure Windows AppUserModelID is set (automatically handled)
+- **QPixmap errors**: Normal for audio files - preview images are not generated for audio-only content
 
 ## License
-
-This project is open source. Feel free to modify and distribute.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
