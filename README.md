@@ -34,6 +34,8 @@ For comprehensive demo showcases and side-by-side comparisons, see **[DEMOS.md](
 - **Compression**: Adjust CRF (18-51) for compression artifacts
 - **Media Artifacts**: Add noise, color shifts, and scanlines for authentic media degradation
 - **Frame Rate Control**: Adjust playback speed (0.1-120 fps)
+- **Hue Shift**: Shifts the color hue of the video
+- **Saturation**: Adjusts the color saturation of the video
 
 ### Audio Effects
 - **Volume Control**: 0% to 500% boost (earrape capable!)
@@ -46,6 +48,11 @@ For comprehensive demo showcases and side-by-side comparisons, see **[DEMOS.md](
 - **Distortion**: Bit-crushing for gritty texture
 - **Sample Rate**: Quality reduction (8kHz-48kHz)
 - **Enhanced Processing**: Multi-stage pipeline eliminates A/V sync constraints
+- **Metadata Annihilation**: Eradicates all metadata from the file depending of the chosen mode;
+  - **Nuked**: Removes all metadata
+  - **Corrupted**: Removes all metadata and sets all tags to weird values
+  - **Randomized**: Removes all metadata and sets all tags to random values
+
 
 ### GUI Features
 - Modern PyQt6 interface with dark theme
@@ -98,20 +105,7 @@ python FFMPEG-ANNIHILATOR.py
 
 6. **Wait**: Processing completes automatically with success notification
 
-## Video Effects Explained
 
-- **Resolution Scaling**: Uses nearest-neighbor scaling for pixelated look
-- **Blur**: Gaussian blur for that out-of-focus VHS feel
-- **Compression**: Higher CRF values create more compression artifacts
-- **VHS Artifacts**: Combines multiple filters for authentic VHS degradation
-
-## Audio Effects Explained
-
-- **Pitch Control**: Shifts audio pitch up or down in semitones without affecting speed
-- **Speed Control**: Changes playback speed while maintaining pitch quality
-- **Bitrate Reduction**: Creates compressed, low-quality audio
-- **High Pass Filter**: Removes bass frequencies for tinny sound
-- **Low Pass Filter**: Removes treble frequencies for muffled sound
 
 ## Supported Formats
 

@@ -12,6 +12,7 @@ import re
 import json
 import tempfile
 import shutil
+import random
 from pathlib import Path
 from PIL import Image, ImageQt
 
@@ -548,10 +549,28 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.framerate_input.setDecimals(2)  # Allow 2 decimal places
         video_layout.addWidget(self.framerate_input, 3, 1, 1, 2)
         
+        # Hue shift
+        video_layout.addWidget(QLabel("Hue Shift:"), 4, 0)
+        self.hue_slider = QSlider(Qt.Orientation.Horizontal)
+        self.hue_slider.setRange(-180, 180)  # -180 to +180 degrees
+        self.hue_slider.setValue(0)
+        self.hue_label = QLabel("0°")
+        video_layout.addWidget(self.hue_slider, 4, 1)
+        video_layout.addWidget(self.hue_label, 4, 2)
+        
+        # Saturation
+        video_layout.addWidget(QLabel("Saturation:"), 5, 0)
+        self.saturation_slider = QSlider(Qt.Orientation.Horizontal)
+        self.saturation_slider.setRange(0, 200)  # 0% to 200%
+        self.saturation_slider.setValue(100)
+        self.saturation_label = QLabel("100%")
+        video_layout.addWidget(self.saturation_slider, 5, 1)
+        video_layout.addWidget(self.saturation_label, 5, 2)
+        
         # Media effects
         self.vhs_checkbox = QCheckBox("Add Media Artifacts")
         self.vhs_checkbox.setChecked(True)
-        video_layout.addWidget(self.vhs_checkbox, 4, 0, 1, 3)
+        video_layout.addWidget(self.vhs_checkbox, 6, 0, 1, 3)
         
         video_group.setLayout(video_layout)
         left_layout.addWidget(video_group)
@@ -643,6 +662,14 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.enhanced_audio_checkbox.setChecked(False)
         self.enhanced_audio_checkbox.setToolTip("Uses multi-stage pipeline for maximum audio effect intensity (video files only)")
         audio_layout.addWidget(self.enhanced_audio_checkbox, 12, 0, 1, 3)
+        
+        # Metadata annihilation type
+        audio_layout.addWidget(QLabel("Metadata Annihilation:"), 13, 0)
+        self.metadata_annihilation_combo = QComboBox()
+        self.metadata_annihilation_combo.addItems(["Nuke", "Corrupt", "Random", "Disabled"])
+        self.metadata_annihilation_combo.setCurrentText("Nuke")
+        self.metadata_annihilation_combo.setToolTip("Nuke: Remove all metadata | Corrupt: Add invalid values | Random: Add fake random metadata")
+        audio_layout.addWidget(self.metadata_annihilation_combo, 13, 1, 1, 2)
         
         audio_group.setLayout(audio_layout)
         left_layout.addWidget(audio_group)
@@ -756,6 +783,8 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         self.volume_slider.valueChanged.connect(self.update_volume_label)
         self.pitch_slider.valueChanged.connect(self.update_pitch_label)
         self.speed_slider.valueChanged.connect(self.update_speed_label)
+        self.hue_slider.valueChanged.connect(self.update_hue_label)
+        self.saturation_slider.valueChanged.connect(self.update_saturation_label)
         
         # Settings changes
         self.resolution_slider.valueChanged.connect(self.update_processed_specs)
@@ -791,6 +820,12 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
     
     def update_speed_label(self, value):
         self.speed_label.setText(f"{value/100:.1f}x")
+    
+    def update_hue_label(self, value):
+        self.hue_label.setText(f"{value}°")
+    
+    def update_saturation_label(self, value):
+        self.saturation_label.setText(f"{value}%")
         
             
     def setup_preview_connections(self):
@@ -806,10 +841,13 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             self.volume_slider.valueChanged.connect(self.debounced_update_previews)
             self.pitch_slider.valueChanged.connect(self.debounced_update_previews)
             self.speed_slider.valueChanged.connect(self.debounced_update_previews)
+            self.hue_slider.valueChanged.connect(self.debounced_update_previews)
+            self.saturation_slider.valueChanged.connect(self.debounced_update_previews)
             self.sample_rate_combo.currentTextChanged.connect(self.debounced_update_previews)
             self.vhs_checkbox.stateChanged.connect(self.debounced_update_previews)
             self.enable_audio_checkbox.stateChanged.connect(self.debounced_update_previews)
             self.enhanced_audio_checkbox.stateChanged.connect(self.debounced_update_previews)
+            self.metadata_annihilation_combo.currentTextChanged.connect(self.debounced_update_previews)
     
     def manual_update_preview(self):
         """Manually trigger preview update"""
@@ -1218,7 +1256,7 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         
     def get_settings_hash(self):
         """Calculate hash of current settings to detect changes"""
-        settings = f"{self.resolution_slider.value()}{self.blur_slider.value()}{self.compression_slider.value()}{self.framerate_input.value()}{self.audio_bitrate_combo.currentText()}{self.highpass_slider.value()}{self.lowpass_slider.value()}{self.volume_slider.value()}{self.pitch_slider.value()}{self.speed_slider.value()}{self.sample_rate_combo.currentText()}{self.vhs_checkbox.isChecked()}{self.enable_audio_checkbox.isChecked()}{self.enhanced_audio_checkbox.isChecked()}{self.reverb_checkbox.isChecked()}{self.distortion_checkbox.isChecked()}"
+        settings = f"{self.resolution_slider.value()}{self.blur_slider.value()}{self.compression_slider.value()}{self.framerate_input.value()}{self.audio_bitrate_combo.currentText()}{self.highpass_slider.value()}{self.lowpass_slider.value()}{self.volume_slider.value()}{self.pitch_slider.value()}{self.speed_slider.value()}{self.hue_slider.value()}{self.saturation_slider.value()}{self.sample_rate_combo.currentText()}{self.vhs_checkbox.isChecked()}{self.enable_audio_checkbox.isChecked()}{self.enhanced_audio_checkbox.isChecked()}{self.reverb_checkbox.isChecked()}{self.distortion_checkbox.isChecked()}{self.metadata_annihilation_combo.currentText()}"
         return hash(settings)
     
     def debounced_update_previews(self):
@@ -1303,6 +1341,40 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             self.processed_info.framerate_label.setText(processed_info['frame_rate'])
             self.processed_info.bitrate_label.setText(processed_info['bitrate'])
             
+    def add_metadata_annihilation(self, cmd):
+        """Add metadata annihilation parameters to FFmpeg command"""
+        # Validate metadata combo box exists
+        if not hasattr(self, 'metadata_annihilation_combo'):
+            return
+            
+        metadata_type = self.metadata_annihilation_combo.currentText()
+        
+        if metadata_type == "Nuke":
+            cmd.extend(["-map_metadata", "-1"])  # Remove all metadata
+        elif metadata_type == "Corrupt":
+            # Add invalid/corrupt metadata
+            cmd.extend([
+                "-metadata", "title=@@@@@@@@@@@@@@@@@@@@",
+                "-metadata", "artist=&&&&&&&&&&&&&&&&&&&&",
+                "-metadata", "album_artist=))))))))))))))))))))",
+                "-metadata", "album=####################",
+                "-metadata", "year=((((((((((((((((((((",
+                "-metadata", "genre=********************" 
+            ])
+        elif metadata_type == "Random":
+            # Add random fake metadata
+            fake_titles = ["Static Noise", "Data Stream", "Binary Dreams", "Glitch Symphony", "Error Melody"]
+            fake_artists = ["Anonymous", "Unknown Source", "Data Ghost", "Signal Lost", "Void Walker"]
+            fake_albums = ["Lost Files", "Corrupted Data", "Digital Ruins", "Broken Circuits", "System Failure"]
+            cmd.extend([
+                "-metadata", f"title={random.choice(fake_titles)}",
+                "-metadata", f"artist={random.choice(fake_artists)}",
+                "-metadata", f"album_artist={random.choice(fake_artists)}",
+                "-metadata", f"album={random.choice(fake_albums)}",
+                "-metadata", f"year={random.randint(1970, 2024)}",
+                "-metadata", f"track={random.randint(1, 99)}"
+            ])
+            
     def build_ffmpeg_command(self):
         """Build FFMPEG command with current settings"""
         if not self.input_file or not self.output_file:
@@ -1372,9 +1444,11 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
                     "-vn",  # No video
                     "-c:a", "pcm_s16le",  # Standard WAV codec
                     "-ar", self.sample_rate_combo.currentText(),  # Sample rate only
-                    "-y",
-                    output_path
                 ])
+                
+                # Handle metadata annihilation
+                self.add_metadata_annihilation(cmd)
+                cmd.extend(["-y", output_path])
             elif output_path.lower().endswith('.aac'):
                 # AAC output - use AAC codec with appropriate bitrate
                 cmd.extend([
@@ -1382,18 +1456,22 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
                     "-c:a", "aac",
                     "-ar", self.sample_rate_combo.currentText(),
                     "-b:a", self.audio_bitrate_combo.currentText(),  # Use selected bitrate
-                    "-y",
-                    output_path
                 ])
+                
+                # Handle metadata annihilation
+                self.add_metadata_annihilation(cmd)
+                cmd.extend(["-y", output_path])
             else:  # Default to MP3
                 cmd.extend([
                     "-vn",  # No video
                     "-c:a", "libmp3lame",
                     "-ar", self.sample_rate_combo.currentText(),
                     "-q:a", "2",  # MP3 quality
-                    "-y",
-                    output_path
                 ])
+                
+                # Handle metadata annihilation
+                self.add_metadata_annihilation(cmd)
+                cmd.extend(["-y", output_path])
             
         else:  # Video files
             # Video filters
@@ -1412,13 +1490,26 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             frame_rate = self.framerate_input.value()
             video_filters.append(f"fps={frame_rate}")
             
+            # Hue shift
+            hue_shift = self.hue_slider.value()
+            if hue_shift != 0:
+                video_filters.append(f"hue=h={hue_shift}")
+            
+            # Saturation (will be combined with VHS effects if needed)
+            saturation = self.saturation_slider.value() / 100.0
+            
             # Media effects
             if self.vhs_checkbox.isChecked():
+                # Combine saturation with VHS effects
+                vhs_saturation = saturation * 0.8  # VHS effect reduces saturation to 80%
                 video_filters.extend([
                     "noise=alls=10:allf=t",
-                    "eq=contrast=1.1:brightness=0.05:saturation=0.8",
+                    f"eq=contrast=1.1:brightness=0.05:saturation={vhs_saturation}",
                     "format=yuv420p,curves=master='0/0 0.2/0.1 0.4/0.3 0.6/0.7 0.8/0.9 1/1'"
                 ])
+            elif saturation != 1.0:
+                # Apply saturation only if VHS is not enabled
+                video_filters.append(f"eq=saturation={saturation}")
             
             if video_filters:
                 cmd.extend(["-vf", ",".join(video_filters)])
@@ -1488,9 +1579,11 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
                 "-preset", "fast",
                 "-r", str(frame_rate),
                 "-c:a", "aac",
-                "-y",
-                output_path
             ])
+            
+            # Handle metadata annihilation for video files
+            self.add_metadata_annihilation(cmd)
+            cmd.extend(["-y", output_path])
         
         return cmd
         
@@ -1643,13 +1736,26 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
             frame_rate = self.framerate_input.value()
             video_filters.append(f"fps={frame_rate}")
             
+            # Hue shift
+            hue_shift = self.hue_slider.value()
+            if hue_shift != 0:
+                video_filters.append(f"hue=h={hue_shift}")
+            
+            # Saturation (will be combined with VHS effects if needed)
+            saturation = self.saturation_slider.value() / 100.0
+            
             # Media effects
             if self.vhs_checkbox.isChecked():
+                # Combine saturation with VHS effects
+                vhs_saturation = saturation * 0.8  # VHS effect reduces saturation to 80%
                 video_filters.extend([
                     "noise=alls=10:allf=t",
-                    "eq=contrast=1.1:brightness=0.05:saturation=0.8",
+                    f"eq=contrast=1.1:brightness=0.05:saturation={vhs_saturation}",
                     "format=yuv420p,curves=master='0/0 0.2/0.1 0.4/0.3 0.6/0.7 0.8/0.9 1/1'"
                 ])
+            elif saturation != 1.0:
+                # Apply saturation only if VHS is not enabled
+                video_filters.append(f"eq=saturation={saturation}")
             
             # Process video
             video_cmd = ["ffmpeg", "-i", self.input_file, "-an"]
@@ -1840,14 +1946,27 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         frame_rate = self.framerate_input.value()
         video_filters.append(f"fps={frame_rate}")
         
+        # Hue shift
+        hue_shift = self.hue_slider.value()
+        if hue_shift != 0:
+            video_filters.append(f"hue=h={hue_shift}")
+        
+        # Saturation (will be combined with VHS effects if needed)
+        saturation = self.saturation_slider.value() / 100.0
+        
         # Media effects
         if self.vhs_checkbox.isChecked():
+            # Combine saturation with VHS effects
+            vhs_saturation = saturation * 0.8  # VHS effect reduces saturation to 80%
             video_filters.extend([
-                "eq=brightness=0.05:contrast=1.2:saturation=0.8",
+                f"eq=brightness=0.05:contrast=1.2:saturation={vhs_saturation}",
                 "curves=all='0/0 0.2/0.1 0.5/0.6 1/1'",
                 "noise=alls=10:allf=t+u",
                 "format=rgb24,format=yuv420p"
             ])
+        elif saturation != 1.0:
+            # Apply saturation only if VHS is not enabled
+            video_filters.append(f"eq=saturation={saturation}")
         
         # Add video filters
         if video_filters:
@@ -1888,14 +2007,27 @@ class FFMPEGMediaAnnihilatorGUI(QMainWindow):
         frame_rate = self.framerate_input.value()
         video_filters.append(f"fps={frame_rate}")
         
+        # Hue shift
+        hue_shift = self.hue_slider.value()
+        if hue_shift != 0:
+            video_filters.append(f"hue=h={hue_shift}")
+        
+        # Saturation (will be combined with VHS effects if needed)
+        saturation = self.saturation_slider.value() / 100.0
+        
         # Media effects
         if self.vhs_checkbox.isChecked():
+            # Combine saturation with VHS effects
+            vhs_saturation = saturation * 0.8  # VHS effect reduces saturation to 80%
             video_filters.extend([
-                "eq=brightness=0.05:contrast=1.2:saturation=0.8",
+                f"eq=brightness=0.05:contrast=1.2:saturation={vhs_saturation}",
                 "curves=all='0/0 0.2/0.1 0.5/0.6 1/1'",
                 "noise=alls=10:allf=t+u",
                 "format=rgb24,format=yuv420p"
             ])
+        elif saturation != 1.0:
+            # Apply saturation only if VHS is not enabled
+            video_filters.append(f"eq=saturation={saturation}")
         
         # Add video filters
         if video_filters:
